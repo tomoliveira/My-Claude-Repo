@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "spark": {
-      "command": "/bin/sh",
-      "args": ["-c", "node ~/spark-claude-extension/server/index.js"]
+      "command": "python",
+      "args": ["scripts/spark_server.py"]
     }
   }
 }
