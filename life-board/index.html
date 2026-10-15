@@ -1,0 +1,327 @@
+<title>Life Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column; summary strip first, then status groups, then recent deliveries. Boldness sits in the display face only. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --fg:#14202b; --muted:#5b6b79; --line:#dbe1e7;
+  --accent:#1f5eff;
+  --ok:#17794a; --ok-bg:#e3f4ea; --warn:#a8610a; --warn-bg:#fdf0da; --bad:#b3261e; --bad-bg:#fbe5e3; --info:#1f5eff; --info-bg:#e5ecff; --idle:#5b6b79; --idle-bg:#e8ecf0;
+  --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f161d; --surface:#17212b; --fg:#e8eef4; --muted:#93a3b2; --line:#263340; --accent:#6f9bff;
+  --ok:#5fd29a; --ok-bg:#133425; --warn:#f0b35a; --warn-bg:#3a2a0f; --bad:#ff8a80; --bad-bg:#401a17; --info:#8db0ff; --info-bg:#182a52; --idle:#93a3b2; --idle-bg:#222e3a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161d; --surface:#17212b; --fg:#e8eef4; --muted:#93a3b2; --line:#263340; --accent:#6f9bff;
+  --ok:#5fd29a; --ok-bg:#133425; --warn:#f0b35a; --warn-bg:#3a2a0f; --bad:#ff8a80; --bad-bg:#401a17; --info:#8db0ff; --info-bg:#182a52; --idle:#93a3b2; --idle-bg:#222e3a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:28px 48px}
+.wrap{max-width:760px;margin-inline:auto;display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:-.02em;line-height:1.05;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+button{font:inherit;font-size:13px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat b{font-family:var(--display);font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat.bad b{color:var(--bad)}
+section{display:flex;flex-direction:column;gap:10px}
+h2{font-family:var(--display);font-size:1.15rem;font-weight:700;margin:0;display:flex;align-items:baseline;gap:8px}
+h2 small{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:11px 14px;border-top:1px solid var(--line);align-items:start}
+li:first-child{border-top:0}
+.name{min-width:0;overflow-wrap:anywhere}
+.name a{color:var(--fg);text-decoration:none}
+.name a:hover{text-decoration:underline;text-decoration-color:var(--accent)}
+.meta{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.meta .code{font-family:var(--mono);font-size:12px}
+.pill{font-size:12px;font-weight:500;border-radius:99px;padding:2px 9px;white-space:nowrap;background:var(--idle-bg);color:var(--idle)}
+.pill.info{background:var(--info-bg);color:var(--info)}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.due{font-variant-numeric:tabular-nums}.due.late{color:var(--bad);font-weight:500}.due.today{color:var(--warn);font-weight:500}
+.note{border:1px dashed var(--line);border-radius:8px;padding:16px;color:var(--muted);background:var(--surface)}
+.note strong{display:block;color:var(--fg);margin-bottom:2px}
+footer{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-top:6px;z-index:2}
+.tab{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 14px;color:var(--muted);font-weight:500;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.panel{display:flex;flex-direction:column;gap:28px}
+.brand{font-family:var(--display);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--accent);margin:0 0 6px}
+.mark{padding:3px 9px;font-size:12px}.mark.armed{border-color:var(--ok);color:var(--ok)}
+.pill.off{background:var(--idle-bg);color:var(--idle)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.note a,footer a{color:var(--accent)}
+.inf{font-family:var(--mono);font-size:11px;color:var(--warn);margin-right:4px}
+.board{display:flex;flex-direction:column;gap:28px}
+</style>
+<div class="wrap">
+  <header>
+    <div><p class="brand">Life Board</p><h1 id="title">Pedidos</h1><p class="sub" id="stamp">Lendo dados…</p></div>
+    <button id="refresh" type="button">Atualizar</button>
+  </header>
+  <div class="tabs" role="tablist" id="tabs"></div>
+
+  <div class="panel" id="p-pedidos" role="tabpanel">
+    <div class="strip" id="strip" hidden></div>
+    <div id="state" class="note"><strong>Carregando pedidos</strong>Lendo a database Pedidos no Notion.</div>
+    <section id="active" hidden><h2>Em andamento <small id="activeN"></small></h2><ul id="activeList"></ul></section>
+    <section id="done" hidden><h2>Entregues nos últimos 14 dias <small id="doneN"></small></h2><ul id="doneList"></ul></section>
+    <footer>Fonte: database Pedidos no Notion, atualizada pela rotina diária de e-mails (Gmail).</footer>
+  </div>
+
+  <div class="panel" id="p-rotinas" role="tabpanel" hidden>
+    <div id="rstate" class="note"><strong>Carregando rotinas</strong>Lendo as tarefas agendadas da sua conta.</div>
+    <section id="rsec" hidden><h2>Tarefas agendadas <small id="rN"></small></h2><ul id="rList"></ul></section>
+    <footer>As rotinas rodam na nuvem da Anthropic, sem depender do seu computador.</footer>
+  </div>
+
+  <div class="panel" id="p-valar" role="tabpanel" hidden>
+    <div class="note" id="b-valar-state"><strong>Carregando Valar</strong>Lendo a database Life Board · Painéis no Notion.</div>
+    <div class="board" id="b-valar"></div>
+    <footer id="b-valar-foot"></footer>
+  </div>
+
+  <div class="panel" id="p-fitness" role="tabpanel" hidden>
+    <div class="note" id="b-fitness-state"><strong>Carregando Fitness</strong>Lendo a database Life Board · Painéis no Notion.</div>
+    <div class="board" id="b-fitness"></div>
+    <footer id="b-fitness-foot"></footer>
+  </div>
+</div>
+<script>
+
+(function(){
+  var SERVER="Notion", TOOL="notion-query-data-sources";
+  var DS="collection://26c1acbe-cc47-47ca-aa1f-6d70c9fb7e1f";
+  var SQL='SELECT Name, Loja, Status, "Código de Rastreio" AS rastreio, "date:Data Prevista:start" AS prevista, "date:Data de Entrega:start" AS entrega, "date:Última Atualização:start" AS atualizado, Fonte AS fonte, url FROM "'+DS+'" WHERE Status != \'Entregue\' OR "date:Data de Entrega:start" >= date(\'now\',\'-14 day\') LIMIT 200';
+  var $=function(id){return document.getElementById(id)};
+  var mcp=null, busy=false;
+  var ORDER={"Problema":0,"Em Trânsito":1,"Pedido Confirmado":2,"Entregue":3};
+  var CLS={"Problema":"bad","Em Trânsito":"info","Entregue":"ok","Pedido Confirmado":""};
+
+  function todayISO(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  function fmt(iso){if(!iso)return "";var p=iso.slice(0,10).split("-");return p[2]+"/"+p[1]}
+  function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+  function parse(res){var p=res&&res.payload;if(typeof p==="string"){try{p=JSON.parse(p)}catch(e){}}return p}
+
+  function row(r,delivered){
+    var li=el("li");
+    var n=el("div","name");
+    if(r.fonte&&/^https:\/\//.test(r.fonte)){var a=el("a",null,r.Name);a.href=r.fonte;a.target="_blank";a.rel="noopener";n.appendChild(a)}else n.textContent=r.Name;
+    li.appendChild(n);
+    li.appendChild(el("span","pill "+(CLS[r.Status]||""),r.Status));
+    var m=el("div","meta");
+    m.appendChild(el("span",null,r.Loja||"Outra"));
+    if(r.rastreio){m.appendChild(el("span","code",r.rastreio))}
+    if(delivered&&r.entrega){m.appendChild(el("span",null,"Entregue em "+fmt(r.entrega)))}
+    else if(r.prevista){
+      var t=todayISO(), cls="due";
+      if(r.prevista<t&&r.Status!=="Entregue")cls+=" late"; else if(r.prevista===t)cls+=" today";
+      var label=r.prevista===t?"Previsto para hoje":(r.prevista<t?"Previsto era "+fmt(r.prevista):"Previsto "+fmt(r.prevista));
+      m.appendChild(el("span",cls,label));
+    }
+    if(!delivered&&r.url){
+      var b=el("button","mark","Marcar como entregue");b.type="button";
+      var armed=false,timer=null;
+      b.addEventListener("click",function(){
+        if(!armed){armed=true;b.textContent="Confirmar entrega?";b.classList.add("armed");timer=setTimeout(function(){armed=false;b.textContent="Marcar como entregue";b.classList.remove("armed")},4000);return}
+        clearTimeout(timer);b.disabled=true;b.textContent="Salvando…";
+        markDelivered(r,b);
+      });
+      m.appendChild(b);
+    }
+    li.appendChild(m);
+    return li;
+  }
+
+  function markDelivered(r,b){
+    var t=todayISO(), id=String(r.url).split("/").pop().split("?")[0];
+    mcp.callTool(SERVER,"notion-update-page",{page_id:id,command:"update_properties",properties:{"Status":"Entregue","date:Data de Entrega:start":t,"date:Data de Entrega:is_datetime":0,"date:Última Atualização:start":t,"date:Última Atualização:is_datetime":0}},{cache:false}).then(function(){
+      busy=false;load();
+    }).catch(function(err){
+      b.disabled=false;b.textContent="Marcar como entregue";b.classList.remove("armed");
+      var c=err&&err.code;
+      b.insertAdjacentElement("afterend",el("span","due late",c==="not_in_manifest"||c==="consent_required"?"Permita a edição no Notion nas permissões do artifact.":"Não salvou. Tente de novo."));
+    });
+  }
+
+  function stat(n,label,bad){var s=el("div","stat"+(bad&&n>0?" bad":""));s.appendChild(el("b",null,String(n)));s.appendChild(el("span",null,label));return s}
+
+  function render(rows){
+    var active=rows.filter(function(r){return r.Status!=="Entregue"});
+    var done=rows.filter(function(r){return r.Status==="Entregue"});
+    active.sort(function(a,b){return (ORDER[a.Status]-ORDER[b.Status])||String(a.prevista||"9999").localeCompare(String(b.prevista||"9999"))||String(a.Name).localeCompare(String(b.Name))});
+    done.sort(function(a,b){return String(b.entrega||"").localeCompare(String(a.entrega||""))});
+    var cnt=function(s){return active.filter(function(r){return r.Status===s}).length};
+    var strip=$("strip");strip.textContent="";
+    strip.appendChild(stat(cnt("Problema"),"Com problema",true));
+    strip.appendChild(stat(cnt("Em Trânsito"),"Em trânsito"));
+    strip.appendChild(stat(cnt("Pedido Confirmado"),"Confirmados"));
+    strip.appendChild(stat(done.length,"Entregues (14 dias)"));
+    strip.hidden=false;
+    var al=$("activeList"),dl=$("doneList");al.textContent="";dl.textContent="";
+    active.forEach(function(r){al.appendChild(row(r,false))});
+    done.forEach(function(r){dl.appendChild(row(r,true))});
+    $("active").hidden=!active.length;$("done").hidden=!done.length;
+    $("activeN").textContent=active.length+" pedidos";$("doneN").textContent=done.length+" pedidos";
+    var st=$("state");
+    if(!rows.length){st.hidden=false;st.className="note";st.textContent="";st.appendChild(el("strong",null,"Nenhum pedido para mostrar"));st.appendChild(document.createTextNode("Quando a rotina de e-mails adicionar pedidos à database Pedidos, eles aparecem aqui."))}
+    else st.hidden=true;
+  }
+
+  function errMsg(err,what){
+    var code=(err&&err.code)||"upstream_error";
+    return {
+      server_not_connected:["Notion não está conectado","Adicione o conector Notion em claude.ai, Configurações, Conectores, e recarregue."],
+      needs_reauth:["Notion precisa de nova autorização","Reconecte o Notion em claude.ai, Configurações, Conectores."],
+      not_in_manifest:["Acesso ao Notion não permitido nesta página","Permita o conector Notion no menu de permissões do artifact."],
+      consent_required:["Acesso ao Notion não permitido nesta página","Permita o conector Notion e toque em Atualizar."],
+      not_granted:["Esta visualização não tem acesso a conectores","Abra o artifact pela sua conta no claude.ai."],
+      capability_disabled:["Esta visualização não tem acesso a conectores","Abra o artifact pela sua conta no claude.ai."],
+      tool_error:["O Notion recusou a consulta",(err&&err.message)||"Tente novamente em instantes."]
+    }[code]||["Não foi possível ler "+what+" agora","Tente atualizar em alguns instantes."];
+  }
+  function showNote(node,msg){node.hidden=false;node.className="note";node.textContent="";node.appendChild(el("strong",null,msg[0]));node.appendChild(document.createTextNode(msg[1]))}
+
+  function fail(err){
+    showNote($("state"),errMsg(err,"o Notion"));
+    $("stamp").textContent="Sem leitura recente";
+  }
+
+  function load(){
+    if(busy)return;busy=true;
+    if(!mcp){busy=false;fail({code:"not_granted"});return}
+    $("stamp").textContent="Lendo a database Pedidos do Notion…";
+    mcp.callTool(SERVER,TOOL,{data:{data_source_urls:[DS],query:SQL}},{cache:false}).then(function(res){
+      var p=parse(res);
+      var rows=(p&&p.results)||[];
+      render(rows);
+      $("stamp").textContent="Pedidos atualizados às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · "+rows.length+" pedidos lidos";
+    }).catch(fail).then(function(){busy=false});
+  }
+
+  /* ---- Rotinas ---- */
+  var rbusy=false;
+  function cronText(t){return t.cron_expression?("cron "+t.cron_expression):(t.run_once_at?("uma vez em "+t.run_once_at.slice(0,16).replace("T"," ")+" UTC"):"sem agenda")}
+  function loadR(){
+    if(rbusy)return;
+    if(!mcp){showNote($("rstate"),errMsg({code:"not_granted"}));return}
+    rbusy=true;
+    $("stamp").textContent="Lendo as tarefas agendadas…";
+    mcp.callTool("Claude Code Remote","list_triggers",{limit:50,include_completed:false},{cache:false}).then(function(res){
+      var p=parse(res);
+      var list=Array.isArray(p)?p:((p&&(p.triggers||p.scheduled_tasks||p.data))||[]);
+      var ul=$("rList");ul.textContent="";
+      list.forEach(function(t){
+        var li=el("li");li.appendChild(el("div","name",t.name||t.id));
+        li.appendChild(el("span","pill "+(t.enabled?"ok":"off"),t.enabled?"Ativa":"Pausada"));
+        var m=el("div","meta");m.appendChild(el("span","code",cronText(t)));
+        if(t.next_run_at)m.appendChild(el("span",null,"Próxima: "+new Date(t.next_run_at).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})));
+        if(t.last_run&&t.last_run.status){var ls=String(t.last_run.status).replace(/^ROUTINE_RUN_STATUS_/,"");m.appendChild(el("span",(/FAILED/.test(ls)?"due late":null),"Última: "+ls.toLowerCase()))}
+        li.appendChild(m);ul.appendChild(li);
+      });
+      $("rN").textContent=list.length+" rotinas";$("rsec").hidden=!list.length;
+      $("stamp").textContent="Rotinas lidas às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      var st=$("rstate");
+      if(!list.length){showNote(st,["Nenhuma rotina agendada","As rotinas que você criar aparecem aqui."])}else st.hidden=true;
+    }).catch(function(err){
+      showNote($("rstate"),["Não foi possível ler as rotinas",err&&err.code==="not_in_manifest"?"Permita o conector Claude Code Remote no menu de permissões do artifact.":"Tente atualizar em alguns instantes."]);
+    }).then(function(){rbusy=false});
+  }
+
+  /* ---- Painéis genéricos: database "Life Board · Painéis" no Notion ----
+     Cada linha tem Aba, Tipo (Seção, Stat, Item, Nota, Carimbo, Rodapé), Seção e Ordem.
+     Uma aba nova só precisa de uma opção nova em Aba e de uma entrada em TABS com board. */
+  var BDS="collection://976b293a-576e-472e-91ec-61345026af1a";
+  var SELO={"Confirmar":"warn","Conflito":"warn","Próximo":"info","Plano":"","Verificado":"ok"};
+  var bbusy={};
+  function isYes(v){return v===true||v==="__YES__"}
+  function safeUrl(u){return u&&/^https:\/\//.test(u)?u:null}
+  function textWithInf(node,r,text){
+    if(isYes(r.inf))node.appendChild(el("span","inf","[Inferência]"));
+    var u=safeUrl(r.Link);
+    if(u&&text){var a=el("a",null,text);a.href=u;a.target="_blank";a.rel="noopener";node.appendChild(a)}
+    else node.appendChild(document.createTextNode(text||""));
+  }
+  function renderBoard(aba,rows){
+    var box=$("b-"+aba);box.textContent="";
+    var by=function(t){return rows.filter(function(r){return r.Tipo===t}).sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0)})};
+    var stats=by("Stat");
+    if(stats.length){
+      var strip=el("div","strip");
+      stats.forEach(function(r){var s=el("div","stat");s.appendChild(el("b",null,r.Valor||"–"));s.appendChild(el("span",null,r.Name));strip.appendChild(s)});
+      box.appendChild(strip);
+    }
+    var secs=by("Seção");
+    var known={};secs.forEach(function(s){known[s.Name]=1});
+    // blocos cuja Seção não tem linha Tipo=Seção ainda aparecem, no fim
+    rows.forEach(function(r){if((r.Tipo==="Item"||r.Tipo==="Nota")&&r.secao&&!known[r.secao]){known[r.secao]=1;secs.push({Name:r.secao})}});
+    secs.forEach(function(s){
+      var items=rows.filter(function(r){return r.secao===s.Name&&(r.Tipo==="Item"||r.Tipo==="Nota")}).sort(function(a,b){return (a.Ordem||0)-(b.Ordem||0)});
+      if(!items.length)return;
+      var sec=el("section");var h=el("h2",null,s.Name);
+      if(s.Detalhe){h.appendChild(document.createTextNode(" "));h.appendChild(el("small",null,s.Detalhe))}
+      sec.appendChild(h);
+      var ul=null;
+      items.forEach(function(r){
+        if(r.Tipo==="Nota"){
+          ul=null;var n=el("div","note");n.appendChild(el("strong",null,r.Name));textWithInf(n,r,r.Detalhe);sec.appendChild(n);return;
+        }
+        if(!ul){ul=el("ul");sec.appendChild(ul)}
+        var li=el("li"),nm=el("div","name");textWithInf(nm,r,r.Name);li.appendChild(nm);
+        if(r.Selo)li.appendChild(el("span","pill "+(SELO[r.Selo]||""),r.Selo));
+        if(r.Detalhe){var m=el("div","meta");m.appendChild(el("span",null,r.Detalhe));li.appendChild(m)}
+        ul.appendChild(li);
+      });
+      box.appendChild(sec);
+    });
+    var foot=$("b-"+aba+"-foot");foot.textContent="";
+    by("Rodapé").forEach(function(r){foot.appendChild(document.createTextNode(r.Name+" "))});
+    var stamp=by("Carimbo")[0];
+    $("stamp").textContent=(stamp?stamp.Name+" · ":"")+"lido do Notion às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    var st=$("b-"+aba+"-state");
+    if(!rows.length)showNote(st,["Nada para mostrar","Adicione linhas com Aba = "+aba+" na database Life Board · Painéis."]);else st.hidden=true;
+  }
+  function loadBoard(aba,label){
+    if(bbusy[aba])return;
+    if(!mcp){showNote($("b-"+aba+"-state"),errMsg({code:"not_granted"}));return}
+    bbusy[aba]=true;
+    $("stamp").textContent="Lendo "+label+" do Notion…";
+    var q='SELECT Name, Tipo, "Seção" AS secao, Valor, Detalhe, Selo, Ordem, "Inferência" AS inf, Link FROM "'+BDS+'" WHERE Aba = ? LIMIT 300';
+    mcp.callTool(SERVER,TOOL,{data:{data_source_urls:[BDS],query:q,params:[label]}},{cache:false}).then(function(res){
+      var p=parse(res);renderBoard(aba,(p&&p.results)||[]);
+    }).catch(function(err){
+      showNote($("b-"+aba+"-state"),errMsg(err,label));$("stamp").textContent="Sem leitura recente";
+    }).then(function(){bbusy[aba]=false});
+  }
+
+  /* ---- Abas: cada atividade ou rotina nova entra como uma aba aqui ---- */
+  var TABS=[
+    {id:"pedidos",label:"Pedidos",title:"Pedidos",load:load,needsMcp:true},
+    {id:"rotinas",label:"Rotinas",title:"Rotinas",load:loadR,needsMcp:true},
+    {id:"valar",label:"Valar",title:"Valar (D&D)",load:function(){loadBoard("valar","Valar")},needsMcp:true},
+    {id:"fitness",label:"Fitness Coaching",title:"Fitness Coaching",load:function(){loadBoard("fitness","Fitness")},needsMcp:true}
+  ];
+  var current=null;
+  function select(id){
+    var t=TABS.filter(function(x){return x.id===id})[0]||TABS[0];current=t;
+    TABS.forEach(function(x){$("p-"+x.id).hidden=x!==t;var b=$("tab-"+x.id);b.setAttribute("aria-selected",x===t?"true":"false")});
+    $("title").textContent=t.title;
+    try{history.replaceState(null,"","#"+t.id)}catch(e){}
+    if(!t.needsMcp||mcp)t.load();
+  }
+  var tabs=$("tabs");
+  TABS.forEach(function(t){var b=el("button","tab",t.label);b.id="tab-"+t.id;b.type="button";b.setAttribute("role","tab");b.addEventListener("click",function(){select(t.id)});tabs.appendChild(b)});
+  $("refresh").addEventListener("click",function(){if(current)current.load()});
+  select((location.hash||"").slice(1));
+  if(!window.claude||!window.claude.use){if(current.needsMcp){fail({code:"not_granted"});current.load()}}
+  else window.claude.use("mcp").then(function(m){mcp=m;if(!m){fail({code:"not_granted"})}current.load()},function(){fail({code:"not_granted"});current.load()});
+})();
+</script>
